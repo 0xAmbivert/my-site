@@ -232,7 +232,7 @@ export default function Preloader({
 		}
 	}, [])
 
-	const heroStyle = { pointerEvents: (revealed ? "auto" : "none") as const }
+	const heroStyle = { pointerEvents: revealed ? ("auto" as const) : ("none" as const) }
 
 	return (
 		<div className="nmn-root" ref={rootRef}>
