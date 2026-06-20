@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
+import Lenis from "lenis"
 import Cursor from "./Cursor"
-
+​
 /**
  * Noman — Hero / main scrollable page (PC layout)
  *
@@ -15,16 +16,16 @@ import Cursor from "./Cursor"
  *
  * Requires: npm i gsap
  */
-
+​
 type HeroProps = {
 	start?: boolean
 	withCurtain?: boolean
 }
-
+​
 const ROLES = "Developer — Nerd — Degen"
 const NAME_WORDS = ["Muhammad", "Noman"]
 const CURTAIN_COLOR = "rgba(201,143,60,0.92)"
-
+​
 const PROJECTS = [
 	{
 		index: "01",
@@ -48,7 +49,7 @@ const PROJECTS = [
 		tags: ["Node", "WebSockets", "D3"],
 	},
 ]
-
+​
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500&family=Orbitron:wght@500;700&family=Raleway:wght@800&display=swap');
 @font-face{
@@ -84,13 +85,13 @@ const STYLES = `
 .nav-btn{
   font-family:"Nexo Kora","Fraunces",serif; font-size:14px; letter-spacing:.05em;
   color:var(--ink); cursor:pointer; padding:11px 22px; border-radius:14px; white-space:nowrap;
-  background:rgba(232,197,129,.40); border:1px solid rgba(255,255,255,.6);
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.6);
   backdrop-filter:blur(12px) saturate(140%); -webkit-backdrop-filter:blur(12px) saturate(140%);
   box-shadow:0 6px 18px rgba(60,110,140,.12);
   transition:transform .3s cubic-bezier(.16,1,.3,1), background .3s ease, box-shadow .3s ease, color .3s ease;
 }
 .nav-btn:hover{
-  transform:translateY(-3px); background:rgba(232,197,129,.72);
+  transform:translateY(-3px); background:rgba(255,255,255,.22);
   box-shadow:0 12px 28px rgba(80,150,180,.30); color:#13262e;
 }
 .nav-brand{
@@ -130,7 +131,7 @@ const STYLES = `
   display:flex; flex-wrap:wrap; justify-content:center; gap:0 .3em;
 }
 .h-word{ display:inline-flex; white-space:nowrap; }
-.h-char{ display:inline-block; }
+.h-char{ display:inline-block; transform-origin:50% 100%; will-change:transform; }
 .hero-roles{
   margin-top:26px; font-size:clamp(13px,1.5vw,18px); letter-spacing:.34em;
   text-transform:uppercase; color:var(--ink2); font-weight:500;
@@ -167,13 +168,21 @@ const STYLES = `
   background:rgba(224,240,248,.6); border:1px solid rgba(255,255,255,.65);
   backdrop-filter:blur(14px); box-shadow:0 18px 44px rgba(50,100,135,.18);
   padding:24px; display:flex; flex-direction:column; gap:13px;
+  transition:translate .45s cubic-bezier(.16,1,.3,1), scale .45s cubic-bezier(.16,1,.3,1), box-shadow .45s ease, border-color .45s ease, background .45s ease;
+}
+.proj-pallet:hover{
+  translate:0 -12px; scale:1.035;
+  background:rgba(232,244,250,.74); border-color:rgba(255,255,255,.9);
+  box-shadow:0 34px 70px rgba(45,95,130,.34);
 }
 .pp-index{ font-family:"Orbitron",sans-serif; font-size:12px; letter-spacing:.24em; color:#3f7d99; }
 .pp-thumb{
   height:128px; border-radius:14px;
   background:linear-gradient(135deg, var(--candy), var(--candy-lo));
   box-shadow:inset 0 0 32px rgba(220,240,250,.6);
+  transition:scale .5s cubic-bezier(.16,1,.3,1), box-shadow .5s ease;
 }
+.proj-pallet:hover .pp-thumb{ scale:1.06; box-shadow:inset 0 0 40px rgba(220,240,250,.8); }
 .pp-name{ font-family:"Noman Name","Fraunces",serif; font-style:italic; font-size:30px; color:var(--ink); line-height:1; }
 .pp-role{ font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink2); }
 .pp-desc{ font-size:13.5px; line-height:1.55; color:#2c4a57; }
@@ -188,7 +197,7 @@ const STYLES = `
   .proj-pallet{ width:min(340px,86vw); }
 }
 `
-
+​
 function splitChars(text: string, cls: string) {
 	return text.split("").map((c, i) => (
 		<span key={i} className={cls}>
@@ -196,17 +205,30 @@ function splitChars(text: string, cls: string) {
 		</span>
 	))
 }
-
+​
 export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 	const rootRef = useRef<HTMLDivElement>(null)
+	const nameRef = useRef<HTMLDivElement>(null)
 	const introPlayedRef = useRef(false)
-
+​
 	// ---- GSAP: initial states, standalone intro, pinned scroll choreography ----
 	useEffect(() => {
 		if (typeof window === "undefined") return
 		const root = rootRef.current
 		if (!root) return
 		gsap.registerPlugin(ScrollTrigger)
+​
+		// smooth momentum (lerp) scrolling, synced to ScrollTrigger
+		const lenis = new Lenis({
+			duration: 1.15,
+			easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+			smoothWheel: true,
+		})
+		lenis.on("scroll", ScrollTrigger.update)
+		const tickerCb = (time: number) => lenis.raf(time * 1000)
+		gsap.ticker.add(tickerCb)
+		gsap.ticker.lagSmoothing(0)
+​
 		const ctx = gsap.context(() => {
 			if (withCurtain) {
 				// hidden until the preloader hands off
@@ -224,13 +246,13 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 						{ clipPath: "inset(0% 0% 100% 0%)", opacity: 0 },
 						{ clipPath: "inset(0% 0% 0% 0%)", opacity: 1, duration: 1.4 },
 					)
-					.from(".hero-name .h-char", { yPercent: 130, opacity: 0, stagger: 0.045, duration: 0.7 }, "-=0.5")
-					.from(".hero-roles .t-char", { yPercent: 120, opacity: 0, stagger: 0.025, duration: 0.55 }, "-=0.25")
-					.from(".hero-corner", { opacity: 0, y: 18, stagger: 0.15, duration: 0.6 }, "-=0.3")
+					.from(".hero-name .h-char", { yPercent: 130, opacity: 0, stagger: 0.05, duration: 0.85, ease: "back.out(1.6)" }, "-=0.6")
+					.from(".hero-roles .t-char", { yPercent: 120, opacity: 0, stagger: 0.02, duration: 0.5 }, "-=0.45")
+					.from(".hero-corner", { opacity: 0, y: 18, stagger: 0.18, duration: 0.7 }, "-=0.2")
 			}
-
+​
 			gsap.set(".proj-sec", { yPercent: 100 })
-
+​
 			// hero card exits UP and out the top; the projects panel rises UP from below into its own place — one pinned stage
 			gsap
 				.timeline({
@@ -252,7 +274,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 				.from(".proj-title", { opacity: 0, y: 26, ease: "power3.out", duration: 0.6 }, ">-0.1")
 				.from(
 					".proj-pallet",
-					{ opacity: 0, xPercent: 65, ease: "power3.out", duration: 1, stagger: { each: 0.5, from: "end" } },
+					{ opacity: 0, xPercent: 60, yPercent: 10, ease: "power3.out", duration: 1, stagger: { each: 0.5, from: "end" } },
 					">-0.1",
 				)
 				.from(
@@ -261,17 +283,21 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 					"<0.3",
 				)
 		}, root)
-
-		return () => ctx.revert()
+​
+		return () => {
+			ctx.revert()
+			gsap.ticker.remove(tickerCb)
+			lenis.destroy()
+		}
 	}, [withCurtain])
-
+​
 	// ---- start: enable cursor + play the curtain handoff intro ----
 	useEffect(() => {
 		if (typeof window === "undefined") return
 		if (!start) return
 		const root = rootRef.current
 		if (!root) return
-
+​
 		// curtain handoff intro (merged mode only)
 		let introTl: gsap.core.Timeline | null = null
 		if (withCurtain && !introPlayedRef.current) {
@@ -306,21 +332,65 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 			// the line fades as the card border takes over
 			introTl.to(".hero-curtain", { autoAlpha: 0, duration: 0.5 }, "<0.2")
 			// premium text reveal
-			introTl.to(".hero-name .h-char", { yPercent: 0, opacity: 1, stagger: 0.045, duration: 0.7, ease: "power3.out" }, ">-0.25")
-			introTl.to(".hero-roles .t-char", { yPercent: 0, opacity: 1, stagger: 0.025, duration: 0.55, ease: "power3.out" }, "-=0.25")
-			introTl.to(".hero-corner", { opacity: 1, y: 0, stagger: 0.15, duration: 0.6, ease: "power3.out" }, "-=0.3")
+			introTl.to(".hero-name .h-char", { yPercent: 0, opacity: 1, stagger: 0.05, duration: 0.85, ease: "back.out(1.6)" }, ">-0.35")
+			introTl.to(".hero-roles .t-char", { yPercent: 0, opacity: 1, stagger: 0.02, duration: 0.5, ease: "power3.out" }, "-=0.45")
+			introTl.to(".hero-corner", { opacity: 1, y: 0, stagger: 0.18, duration: 0.7, ease: "power2.out" }, "-=0.2")
 		}
-
+​
 		return () => {
 			if (introTl) introTl.kill()
 		}
 	}, [start, withCurtain])
-
+​
+	// ---- watery stretch: chars near the cursor elongate & lift (name only) ----
+	useEffect(() => {
+		if (typeof window === "undefined") return
+		const nameEl = nameRef.current
+		if (!nameEl) return
+		const chars = Array.from(nameEl.querySelectorAll<HTMLElement>(".h-char"))
+		if (!chars.length) return
+​
+		const RADIUS = 150
+		const movers = chars.map((el) => ({
+			el,
+			toY: gsap.quickTo(el, "y", { duration: 0.5, ease: "power3.out" }),
+			toSY: gsap.quickTo(el, "scaleY", { duration: 0.5, ease: "power3.out" }),
+			toSX: gsap.quickTo(el, "scaleX", { duration: 0.5, ease: "power3.out" }),
+		}))
+​
+		const onMove = (e: PointerEvent) => {
+			for (const m of movers) {
+				const r = m.el.getBoundingClientRect()
+				const cx = r.left + r.width / 2
+				const d = Math.abs(e.clientX - cx)
+				const f = Math.max(0, 1 - d / RADIUS)
+				const s = f * f * (3 - 2 * f)
+				m.toY(-32 * s)
+				m.toSY(1 + 0.6 * s)
+				m.toSX(1 - 0.12 * s)
+			}
+		}
+		const reset = () => {
+			for (const m of movers) {
+				m.toY(0)
+				m.toSY(1)
+				m.toSX(1)
+			}
+		}
+​
+		nameEl.addEventListener("pointermove", onMove)
+		nameEl.addEventListener("pointerleave", reset)
+		return () => {
+			nameEl.removeEventListener("pointermove", onMove)
+			nameEl.removeEventListener("pointerleave", reset)
+		}
+	}, [])
+​
 	return (
 		<div className="hero-root" ref={rootRef}>
 			<style>{STYLES}</style>
 			{withCurtain && <div className="hero-curtain" />}
-
+​
 			<nav className="hero-nav">
 				<div className="nav-inner">
 					<div className="nav-left">
@@ -334,12 +404,12 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 					</div>
 				</div>
 			</nav>
-
+​
 			<div className="scroll-stage">
 			<section className="hero-sec">
 				<div className="glass-card hero-card">
 					<div className="hero-inner">
-						<div className="hero-name hero-line">
+						<div className="hero-name hero-line" ref={nameRef}>
 							{NAME_WORDS.map((word, wi) => (
 								<span className="h-word" key={wi}>
 									{word.split("").map((c, ci) => (
@@ -354,7 +424,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 					<div className="hero-corner hero-corner-r">0xNOMAN · WAGMI</div>
 				</div>
 			</section>
-
+​
 			<section className="proj-sec">
 				<div className="glass-card proj-card">
 					<div className="proj-title">Projects</div>
@@ -377,8 +447,9 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 				</div>
 			</section>
 			</div>
-
+​
 			<Cursor />
 		</div>
 	)
 }
+​
