@@ -3,6 +3,7 @@ import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import Lenis from "lenis"
 import Cursor from "./Cursor"
+import LiquidName from "./LiquidName"
 
 /**
  * Noman — Hero / main scrollable page (PC layout)
@@ -287,7 +288,14 @@ const STYLES = `
   font-family:"Raleway","Inter",sans-serif; font-style:normal; font-weight:800; letter-spacing:-0.01em;
   font-size:clamp(46px, 8vw, 120px); line-height:1.02; color:var(--ink);
   display:flex; flex-wrap:wrap; justify-content:flex-start; gap:0 .3em;
+  position:relative;
 }
+.liquid-name-canvas{
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; opacity:0; transition:opacity .55s ease; z-index:2;
+}
+.hero-name.is-liquid .liquid-name-canvas{ opacity:1; }
+.hero-name.is-liquid .h-char{ color:transparent; }
 .h-word{ display:inline-flex; white-space:nowrap; }
 .h-char{ display:inline-block; transform-origin:50% 100%; will-change:transform; }
 .hero-roles{
@@ -372,6 +380,8 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 	const lenisRef = useRef<Lenis | null>(null)
 	const scrollTriggerRef = useRef<ScrollTrigger | null>(null)
 	const [themed, setThemed] = useState(false)
+	const [liquidOn, setLiquidOn] = useState(false)
+	const activateLiquid = useCallback(() => setLiquidOn(true), [])
 
 	// ---- GSAP: initial states, standalone intro, pinned scroll choreography ----
 	useEffect(() => {
@@ -511,49 +521,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 		}
 	}, [start, withCurtain])
 
-	// ---- watery stretch: chars near the cursor elongate & lift (name only) ----
-	useEffect(() => {
-		if (typeof window === "undefined") return
-		const nameEl = nameRef.current
-		if (!nameEl) return
-		const chars = Array.from(nameEl.querySelectorAll<HTMLElement>(".h-char"))
-		if (!chars.length) return
-
-		const RADIUS = 150
-		const movers = chars.map((el) => ({
-			el,
-			toY: gsap.quickTo(el, "y", { duration: 0.5, ease: "power3.out" }),
-			toSY: gsap.quickTo(el, "scaleY", { duration: 0.5, ease: "power3.out" }),
-			toSX: gsap.quickTo(el, "scaleX", { duration: 0.5, ease: "power3.out" }),
-		}))
-
-		const onMove = (e: PointerEvent) => {
-			for (const m of movers) {
-				const r = m.el.getBoundingClientRect()
-				const cx = r.left + r.width / 2
-				const d = Math.abs(e.clientX - cx)
-				const f = Math.max(0, 1 - d / RADIUS)
-				const s = f * f * (3 - 2 * f)
-				m.toY(-32 * s)
-				m.toSY(1 + 0.6 * s)
-				m.toSX(1 - 0.12 * s)
-			}
-		}
-		const reset = () => {
-			for (const m of movers) {
-				m.toY(0)
-				m.toSY(1)
-				m.toSX(1)
-			}
-		}
-
-		nameEl.addEventListener("pointermove", onMove)
-		nameEl.addEventListener("pointerleave", reset)
-		return () => {
-			nameEl.removeEventListener("pointermove", onMove)
-			nameEl.removeEventListener("pointerleave", reset)
-		}
-	}, [])
+	// ---- liquid flowmap distortion on the name handled by <LiquidName /> (WebGL/OGL) ----
 
 	const handleCardGlow = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
 		const card = e.currentTarget
@@ -632,7 +600,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 					<span className="glow-edge" aria-hidden="true" />
 					<div className="hero-inner">
 						<div className="hero-text">
-							<div className="hero-name hero-line" ref={nameRef}>
+							<div className={`hero-name hero-line${liquidOn ? " is-liquid" : ""}`} ref={nameRef}>
 								{NAME_WORDS.map((word, wi) => (
 									<span className="h-word" key={wi}>
 										{word.split("").map((c, ci) => (
@@ -640,6 +608,11 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 										))}
 									</span>
 								))}
+								<LiquidName
+									words={NAME_WORDS}
+									color={themed ? "#f5ecdd" : "#1c333d"}
+									onActivate={activateLiquid}
+								/>
 							</div>
 							<div className="hero-roles hero-line">{splitChars(ROLES, "t-char")}</div>
 						</div>
