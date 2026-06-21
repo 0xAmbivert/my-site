@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import Lenis from "lenis"
 import Cursor from "./Cursor"
-​
+
 /**
  * Noman — Hero / main scrollable page (PC layout)
  *
@@ -16,16 +16,16 @@ import Cursor from "./Cursor"
  *
  * Requires: npm i gsap
  */
-​
+
 type HeroProps = {
 	start?: boolean
 	withCurtain?: boolean
 }
-​
+
 const ROLES = "Developer — Nerd — Degen"
 const NAME_WORDS = ["Muhammad", "Noman"]
 const CURTAIN_COLOR = "rgba(201,143,60,0.92)"
-​
+
 const PROJECTS = [
 	{
 		index: "01",
@@ -49,7 +49,7 @@ const PROJECTS = [
 		tags: ["Node", "WebSockets", "D3"],
 	},
 ]
-​
+
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500&family=Orbitron:wght@500;700&family=Raleway:wght@800&display=swap');
 @font-face{
@@ -70,6 +70,32 @@ const STYLES = `
   background:var(--golf);
   font-family:"Inter", system-ui, sans-serif; overflow-x:hidden;
 }
+/* whole-website background wash (fades in on Big Button click) */
+.bg-wash{
+  position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0;
+  background:linear-gradient(135deg, #1e130c 0%, #3a2a20 46%, #9a8478 100%);
+  transition:opacity .9s ease;
+}
+.theme-hershey .bg-wash{ opacity:1; }
+.theme-hershey .hero-card{ --ink:#f5ecdd; --ink2:#e0cdb6; }
+.theme-hershey .hero-corner{ color:#e0cdb6; text-shadow:0 1px 12px rgba(0,0,0,.4); }
+.theme-hershey .glow-card{
+  --mesh-a:#9a8478; --mesh-b:#c8a892; --mesh-c:#e8c581;
+  --hg:hsl(28deg 42% 72% / 95%); --hg-40:hsl(28deg 42% 72% / 40%);
+  --hg-30:hsl(28deg 42% 72% / 30%); --hg-20:hsl(28deg 42% 72% / 20%); --hg-10:hsl(28deg 42% 72% / 10%);
+}
+.theme-hershey .switch-outer{ border-color:#5a4636; }
+.theme-hershey .nav-btn{
+  color:#f2e6d6; border-color:rgba(245,235,220,.45);
+  background:linear-gradient(135deg, rgba(255,240,225,.20) 0%, rgba(255,240,225,.08) 45%, rgba(255,240,225,.03) 100%);
+  box-shadow:0 8px 26px rgba(30,18,10,.34), inset 0 1px 1px rgba(255,240,225,.4), inset 0 -6px 14px rgba(255,240,225,.06);
+}
+.theme-hershey .nav-btn::after{
+  background:linear-gradient(135deg, rgba(200,168,146,.78) 0%, rgba(245,235,220,.58) 100%);
+}
+.theme-hershey .nav-btn:hover{ color:#2a1a10; border-color:rgba(245,235,220,.85); }
+.theme-hershey .nav-brand{ color:#f2e6d6; background:rgba(60,40,28,.42); }
+.theme-hershey .hero-divider{ background:linear-gradient(180deg, transparent 0%, #e0cdb6 18%, #e0cdb6 82%, transparent 100%); }
 .hero-curtain{
   position:fixed; top:0; left:0; width:100%; height:100%; z-index:60;
   background:rgba(201,143,60,0.92);
@@ -81,19 +107,36 @@ const STYLES = `
   display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:76px;
 }
 .nav-left{ justify-self:start; display:flex; gap:12px; }
-.nav-right{ justify-self:end; display:flex; gap:12px; }
+.nav-right{ justify-self:end; display:flex; gap:12px; align-items:center; }
 .nav-btn{
+  position:relative; isolation:isolate; overflow:hidden;
   font-family:"Nexo Kora","Fraunces",serif; font-size:14px; letter-spacing:.05em;
-  color:var(--ink); cursor:pointer; padding:11px 22px; border-radius:14px; white-space:nowrap;
-  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.6);
-  backdrop-filter:blur(12px) saturate(140%); -webkit-backdrop-filter:blur(12px) saturate(140%);
-  box-shadow:0 6px 18px rgba(60,110,140,.12);
-  transition:transform .3s cubic-bezier(.16,1,.3,1), background .3s ease, box-shadow .3s ease, color .3s ease;
+  color:var(--ink); cursor:pointer; padding:11px 22px; border-radius:16px; white-space:nowrap;
+  background:linear-gradient(135deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.10) 45%, rgba(255,255,255,.05) 100%);
+  border:1px solid rgba(255,255,255,.55);
+  backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+  box-shadow:0 8px 26px rgba(60,110,140,.20), inset 0 1px 1px rgba(255,255,255,.75), inset 0 -6px 14px rgba(255,255,255,.10);
+  transition:color .3s ease, border-color .35s ease, box-shadow .35s ease;
+}
+/* glossy top-edge sheen (glass design) */
+.nav-btn::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:-1;
+  background:linear-gradient(180deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,0) 42%);
+  opacity:.7;
+}
+/* frosted-glass fill that sweeps in from the left on hover */
+.nav-btn::after{
+  content:""; position:absolute; top:0; left:0; height:100%; width:0; border-radius:inherit;
+  pointer-events:none; z-index:-1;
+  background:linear-gradient(135deg, rgba(214,236,246,.78) 0%, rgba(255,255,255,.55) 100%);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.85);
+  transition:width .4s cubic-bezier(.16,1,.3,1);
 }
 .nav-btn:hover{
-  transform:translateY(-3px); background:rgba(255,255,255,.22);
-  box-shadow:0 12px 28px rgba(80,150,180,.30); color:#13262e;
+  color:#0f2530; border-color:rgba(255,255,255,.9);
+  box-shadow:0 14px 32px rgba(60,110,140,.28), inset 0 1px 2px rgba(255,255,255,.9);
 }
+.nav-btn:hover::after{ width:100%; }
 .nav-brand{
   justify-self:center; align-self:start; margin-top:-20px;
   font-family:"Nexo Kora","Fraunces",serif;
@@ -120,15 +163,130 @@ const STYLES = `
   overflow:hidden;
 }
 .hero-card{
-  width:min(1500px,94vw); height:min(86vh, 900px);
+  width:min(1600px,95vw); height:min(88vh, 980px);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   will-change:clip-path, transform, opacity;
 }
-.hero-inner{ text-align:center; transform:translateY(-6%); padding:0 24px; }
+/* ---- BorderGlow integration (cursor-tracked, shared by both cards) ---- */
+.glow-card{
+  isolation:isolate; overflow:visible;
+  --edge-proximity:0; --cursor-angle:45deg;
+  --edge-sensitivity:26; --color-sensitivity:calc(var(--edge-sensitivity) + 20);
+  --glow-padding:46px; --cone-spread:25;
+  --mesh-a:#8fc0d8; --mesh-b:#d6ecf6; --mesh-c:#e8c581;
+  --hg:hsl(200deg 70% 78% / 95%); --hg-40:hsl(200deg 70% 78% / 40%);
+  --hg-30:hsl(200deg 70% 78% / 30%); --hg-20:hsl(200deg 70% 78% / 20%); --hg-10:hsl(200deg 70% 78% / 10%);
+}
+.switch-button{ display:flex; align-items:center; justify-content:center; height:34px; }
+.switch-button .switch-outer{
+  height:100%; background:#252532; width:72px; border-radius:165px;
+  box-shadow:inset 0px 5px 10px 0px #16151c, 0px 3px 6px -2px #403f4e;
+  border:1px solid #32303e; padding:4px; box-sizing:border-box; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; position:relative;
+}
+.switch-button .switch-outer input[type="checkbox"]{
+  opacity:0; -webkit-appearance:none; -moz-appearance:none; appearance:none; position:absolute;
+}
+.switch-button .switch-outer .button-toggle{
+  height:26px; width:26px;
+  background:linear-gradient(#3b3a4e, #272733);
+  border-radius:100%;
+  box-shadow:inset 0px 5px 4px 0px #424151, 0px 4px 15px 0px #0f0e17;
+  position:relative; z-index:2; transition:left 0.3s ease-in; left:0;
+}
+.switch-button .switch-outer input[type="checkbox"]:checked + .button .button-toggle{ left:58%; }
+.switch-button .switch-outer input[type="checkbox"]:checked + .button .button-indicator{ animation:indicator 1s forwards; }
+.switch-button .switch-outer .button{
+  width:100%; height:100%; display:flex; position:relative; justify-content:space-between;
+}
+.switch-button .switch-outer .button-indicator{
+  height:16px; width:16px; top:50%; transform:translateY(-50%);
+  border-radius:50%; border:2px solid #E8C581; box-sizing:border-box;
+  right:6px; position:relative;
+}
+@keyframes indicator{
+  0%{ opacity:1; }
+  30%{ opacity:0; }
+  100%{ opacity:1; border:2px solid #9a8478; left:-68%; }
+}
+/* colored mesh-gradient border that lights up toward the cursor */
+.glow-card::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1; pointer-events:none;
+  padding:1.5px;
+  background:
+    radial-gradient(at 80% 55%, var(--mesh-a) 0px, transparent 50%),
+    radial-gradient(at 69% 34%, var(--mesh-b) 0px, transparent 50%),
+    radial-gradient(at 8% 6%, var(--mesh-c) 0px, transparent 50%),
+    radial-gradient(at 41% 38%, var(--mesh-a) 0px, transparent 50%),
+    radial-gradient(at 86% 85%, var(--mesh-b) 0px, transparent 50%),
+    radial-gradient(at 82% 18%, var(--mesh-c) 0px, transparent 50%),
+    radial-gradient(at 51% 4%, var(--mesh-b) 0px, transparent 50%),
+    linear-gradient(var(--mesh-a) 0 100%);
+  -webkit-mask:
+    conic-gradient(from var(--cursor-angle) at center, #000 calc(var(--cone-spread) * 1%), transparent calc((var(--cone-spread) + 15) * 1%), transparent calc((100 - var(--cone-spread) - 15) * 1%), #000 calc((100 - var(--cone-spread)) * 1%)),
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: source-in, xor, source-over;
+  mask:
+    conic-gradient(from var(--cursor-angle) at center, #000 calc(var(--cone-spread) * 1%), transparent calc((var(--cone-spread) + 15) * 1%), transparent calc((100 - var(--cone-spread) - 15) * 1%), #000 calc((100 - var(--cone-spread)) * 1%)),
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: intersect, exclude, add;
+  opacity: calc((var(--edge-proximity) - var(--color-sensitivity)) / (100 - var(--color-sensitivity)));
+  transition: opacity .25s ease-out;
+}
+/* soft outer glow halo */
+.glow-card > .glow-edge{
+  position:absolute; inset:calc(var(--glow-padding) * -1); border-radius:inherit;
+  pointer-events:none; z-index:1;
+  -webkit-mask: conic-gradient(from var(--cursor-angle) at center, #000 2.5%, transparent 10%, transparent 90%, #000 97.5%);
+  mask: conic-gradient(from var(--cursor-angle) at center, #000 2.5%, transparent 10%, transparent 90%, #000 97.5%);
+  opacity: calc((var(--edge-proximity) - var(--edge-sensitivity)) / (100 - var(--edge-sensitivity)));
+  mix-blend-mode: plus-lighter;
+  transition: opacity .25s ease-out;
+}
+.glow-card > .glow-edge::before{
+  content:""; position:absolute; inset:var(--glow-padding); border-radius:inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--hg),
+    inset 0 0 6px 0 var(--hg-40),
+    inset 0 0 15px 0 var(--hg-30),
+    inset 0 0 25px 2px var(--hg-20),
+    inset 0 0 50px 2px var(--hg-10),
+    0 0 6px 0 var(--hg-40),
+    0 0 15px 0 var(--hg-30),
+    0 0 25px 2px var(--hg-20),
+    0 0 50px 2px var(--hg-10);
+}
+/* fade the whole glow out smoothly when the pointer leaves */
+.glow-card:not(:hover)::before,
+.glow-card:not(:hover) > .glow-edge{
+  opacity:0; transition:opacity .6s ease-in-out;
+}
+.hero-inner{
+  display:flex; align-items:center; justify-content:center; gap:0;
+  text-align:left; transform:translateY(-4%); padding:0 clamp(28px,5vw,72px); position:relative; z-index:2;
+}
+.hero-text{ display:flex; flex-direction:column; align-items:flex-start; }
+.hero-divider{
+  flex:0 0 auto; align-self:stretch; width:1.5px; margin:6px clamp(56px,7vw,120px) 6px clamp(18px,2vw,30px); border-radius:2px;
+  background:linear-gradient(180deg, transparent 0%, var(--ink2) 18%, var(--ink2) 82%, transparent 100%);
+  opacity:.5;
+}
+.hero-aside{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+.hero-avatar{
+  width:clamp(240px,27vw,360px); height:clamp(300px,34vw,440px);
+  border-radius:24px; overflow:hidden; position:relative;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; box-shadow:none;
+}
+.hero-avatar img, .hero-avatar-img{ width:100%; height:100%; object-fit:cover; display:block; }
+.hero-avatar-ph{ width:42%; height:42%; color:rgba(40,80,100,.18); }
+.hero-avatar-ph svg{ width:100%; height:100%; stroke:currentColor; stroke-width:1.4; fill:none; stroke-linecap:round; stroke-linejoin:round; }
 .hero-name{
   font-family:"Raleway","Inter",sans-serif; font-style:normal; font-weight:800; letter-spacing:-0.01em;
   font-size:clamp(46px, 8vw, 120px); line-height:1.02; color:var(--ink);
-  display:flex; flex-wrap:wrap; justify-content:center; gap:0 .3em;
+  display:flex; flex-wrap:wrap; justify-content:flex-start; gap:0 .3em;
 }
 .h-word{ display:inline-flex; white-space:nowrap; }
 .h-char{ display:inline-block; transform-origin:50% 100%; will-change:transform; }
@@ -149,7 +307,7 @@ const STYLES = `
   display:flex; align-items:center; justify-content:center; padding:30px 0;
 }
 .proj-card{
-  width:min(1500px,94vw); height:min(88vh, 940px);
+  width:min(1600px,95vw); height:min(89vh, 1010px);
   display:flex; flex-direction:column; align-items:center; will-change:clip-path;
 }
 .proj-title{
@@ -197,7 +355,7 @@ const STYLES = `
   .proj-pallet{ width:min(340px,86vw); }
 }
 `
-​
+
 function splitChars(text: string, cls: string) {
 	return text.split("").map((c, i) => (
 		<span key={i} className={cls}>
@@ -205,30 +363,35 @@ function splitChars(text: string, cls: string) {
 		</span>
 	))
 }
-​
+
 export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 	const rootRef = useRef<HTMLDivElement>(null)
 	const nameRef = useRef<HTMLDivElement>(null)
 	const introPlayedRef = useRef(false)
-​
+	const heroCardRef = useRef<HTMLDivElement>(null)
+	const lenisRef = useRef<Lenis | null>(null)
+	const scrollTriggerRef = useRef<ScrollTrigger | null>(null)
+	const [themed, setThemed] = useState(false)
+
 	// ---- GSAP: initial states, standalone intro, pinned scroll choreography ----
 	useEffect(() => {
 		if (typeof window === "undefined") return
 		const root = rootRef.current
 		if (!root) return
 		gsap.registerPlugin(ScrollTrigger)
-​
+
 		// smooth momentum (lerp) scrolling, synced to ScrollTrigger
 		const lenis = new Lenis({
 			duration: 1.15,
 			easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
 			smoothWheel: true,
 		})
+		lenisRef.current = lenis
 		lenis.on("scroll", ScrollTrigger.update)
 		const tickerCb = (time: number) => lenis.raf(time * 1000)
 		gsap.ticker.add(tickerCb)
 		gsap.ticker.lagSmoothing(0)
-​
+
 		const ctx = gsap.context(() => {
 			if (withCurtain) {
 				// hidden until the preloader hands off
@@ -249,12 +412,13 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 					.from(".hero-name .h-char", { yPercent: 130, opacity: 0, stagger: 0.05, duration: 0.85, ease: "back.out(1.6)" }, "-=0.6")
 					.from(".hero-roles .t-char", { yPercent: 120, opacity: 0, stagger: 0.02, duration: 0.5 }, "-=0.45")
 					.from(".hero-corner", { opacity: 0, y: 18, stagger: 0.18, duration: 0.7 }, "-=0.2")
+					.set(".hero-card", { clearProps: "clipPath" })
 			}
-​
+
 			gsap.set(".proj-sec", { yPercent: 100 })
-​
+
 			// hero card exits UP and out the top; the projects panel rises UP from below into its own place — one pinned stage
-			gsap
+			const scrollTl = gsap
 				.timeline({
 					scrollTrigger: {
 						trigger: ".scroll-stage",
@@ -282,22 +446,26 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 					{ opacity: 0, x: 34, ease: "power3.out", duration: 0.5, stagger: { each: 0.06, from: "end" } },
 					"<0.3",
 				)
+
+			scrollTriggerRef.current = scrollTl.scrollTrigger ?? null
 		}, root)
-​
+
 		return () => {
 			ctx.revert()
 			gsap.ticker.remove(tickerCb)
 			lenis.destroy()
+			lenisRef.current = null
+			scrollTriggerRef.current = null
 		}
 	}, [withCurtain])
-​
+
 	// ---- start: enable cursor + play the curtain handoff intro ----
 	useEffect(() => {
 		if (typeof window === "undefined") return
 		if (!start) return
 		const root = rootRef.current
 		if (!root) return
-​
+
 		// curtain handoff intro (merged mode only)
 		let introTl: gsap.core.Timeline | null = null
 		if (withCurtain && !introPlayedRef.current) {
@@ -335,13 +503,14 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 			introTl.to(".hero-name .h-char", { yPercent: 0, opacity: 1, stagger: 0.05, duration: 0.85, ease: "back.out(1.6)" }, ">-0.35")
 			introTl.to(".hero-roles .t-char", { yPercent: 0, opacity: 1, stagger: 0.02, duration: 0.5, ease: "power3.out" }, "-=0.45")
 			introTl.to(".hero-corner", { opacity: 1, y: 0, stagger: 0.18, duration: 0.7, ease: "power2.out" }, "-=0.2")
+			introTl.set(".hero-card", { clearProps: "clipPath" })
 		}
-​
+
 		return () => {
 			if (introTl) introTl.kill()
 		}
 	}, [start, withCurtain])
-​
+
 	// ---- watery stretch: chars near the cursor elongate & lift (name only) ----
 	useEffect(() => {
 		if (typeof window === "undefined") return
@@ -349,7 +518,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 		if (!nameEl) return
 		const chars = Array.from(nameEl.querySelectorAll<HTMLElement>(".h-char"))
 		if (!chars.length) return
-​
+
 		const RADIUS = 150
 		const movers = chars.map((el) => ({
 			el,
@@ -357,7 +526,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 			toSY: gsap.quickTo(el, "scaleY", { duration: 0.5, ease: "power3.out" }),
 			toSX: gsap.quickTo(el, "scaleX", { duration: 0.5, ease: "power3.out" }),
 		}))
-​
+
 		const onMove = (e: PointerEvent) => {
 			for (const m of movers) {
 				const r = m.el.getBoundingClientRect()
@@ -377,7 +546,7 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 				m.toSX(1)
 			}
 		}
-​
+
 		nameEl.addEventListener("pointermove", onMove)
 		nameEl.addEventListener("pointerleave", reset)
 		return () => {
@@ -385,48 +554,115 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 			nameEl.removeEventListener("pointerleave", reset)
 		}
 	}, [])
-​
+
+	const handleCardGlow = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+		const card = e.currentTarget
+		if (!card) return
+		const rect = card.getBoundingClientRect()
+		const x = e.clientX - rect.left
+		const y = e.clientY - rect.top
+		const cx = rect.width / 2
+		const cy = rect.height / 2
+		const dx = x - cx
+		const dy = y - cy
+		let kx = Infinity
+		let ky = Infinity
+		if (dx !== 0) kx = cx / Math.abs(dx)
+		if (dy !== 0) ky = cy / Math.abs(dy)
+		const edge = Math.min(Math.max(1 / Math.min(kx, ky), 0), 1)
+		let deg = 0
+		if (dx !== 0 || dy !== 0) {
+			deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90
+			if (deg < 0) deg += 360
+		}
+		card.style.setProperty("--edge-proximity", (edge * 100).toFixed(3))
+		card.style.setProperty("--cursor-angle", `${deg.toFixed(3)}deg`)
+	}, [])
+
+	const goToHero = useCallback(() => {
+		const st = scrollTriggerRef.current
+		const target = st ? st.start : 0
+		if (lenisRef.current) lenisRef.current.scrollTo(target, { duration: 1.2 })
+		else window.scrollTo({ top: target, behavior: "smooth" })
+	}, [])
+
+	const goToProjects = useCallback(() => {
+		const st = scrollTriggerRef.current
+		const target = st ? st.end : 0
+		if (lenisRef.current) lenisRef.current.scrollTo(target, { duration: 1.4 })
+		else window.scrollTo({ top: target, behavior: "smooth" })
+	}, [])
+
+	const toggleTheme = useCallback(() => {
+		setThemed((v) => !v)
+	}, [])
+
 	return (
-		<div className="hero-root" ref={rootRef}>
+		<div className={`hero-root${themed ? " theme-hershey" : ""}`} ref={rootRef}>
 			<style>{STYLES}</style>
+			<div className="bg-wash" aria-hidden="true" />
 			{withCurtain && <div className="hero-curtain" />}
-​
+
 			<nav className="hero-nav">
 				<div className="nav-inner">
 					<div className="nav-left">
-						<button className="nav-btn" data-cursor="glow">Home</button>
-						<button className="nav-btn" data-cursor="glow">Projects</button>
+						<button className="nav-btn" data-cursor="glow" onClick={goToHero}>Home</button>
+						<button className="nav-btn" data-cursor="glow" onClick={goToProjects}>Projects</button>
 					</div>
 					<div className="nav-brand">Noman</div>
 					<div className="nav-right">
 						<button className="nav-btn" data-cursor="glow">About Me</button>
 						<button className="nav-btn" data-cursor="glow">Contact Me</button>
+						<label className="switch-button" aria-label="Toggle theme" data-cursor="glow">
+							<div className="switch-outer">
+								<input type="checkbox" checked={themed} onChange={toggleTheme} />
+								<div className="button">
+									<span className="button-toggle" />
+									<span className="button-indicator" />
+								</div>
+							</div>
+						</label>
 					</div>
 				</div>
 			</nav>
-​
+
 			<div className="scroll-stage">
 			<section className="hero-sec">
-				<div className="glass-card hero-card">
+				<div className="glass-card hero-card glow-card" ref={heroCardRef} onPointerMove={handleCardGlow}>
+					<span className="glow-edge" aria-hidden="true" />
 					<div className="hero-inner">
-						<div className="hero-name hero-line" ref={nameRef}>
-							{NAME_WORDS.map((word, wi) => (
-								<span className="h-word" key={wi}>
-									{word.split("").map((c, ci) => (
-										<span className="h-char" key={ci}>{c}</span>
-									))}
-								</span>
-							))}
+						<div className="hero-text">
+							<div className="hero-name hero-line" ref={nameRef}>
+								{NAME_WORDS.map((word, wi) => (
+									<span className="h-word" key={wi}>
+										{word.split("").map((c, ci) => (
+											<span className="h-char" key={ci}>{c}</span>
+										))}
+									</span>
+								))}
+							</div>
+							<div className="hero-roles hero-line">{splitChars(ROLES, "t-char")}</div>
 						</div>
-						<div className="hero-roles hero-line">{splitChars(ROLES, "t-char")}</div>
+						<div className="hero-divider hero-line" aria-hidden="true" />
+						<div className="hero-aside hero-line">
+							<div className="hero-avatar">
+								<span className="hero-avatar-ph" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none">
+										<circle cx="12" cy="8.5" r="3.6" />
+										<path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" />
+									</svg>
+								</span>
+							</div>
+						</div>
 					</div>
 					<div className="hero-corner hero-corner-l">// COMPILING DREAMS</div>
 					<div className="hero-corner hero-corner-r">0xNOMAN · WAGMI</div>
 				</div>
 			</section>
-​
+
 			<section className="proj-sec">
-				<div className="glass-card proj-card">
+				<div className="glass-card proj-card glow-card" onPointerMove={handleCardGlow}>
+					<span className="glow-edge" aria-hidden="true" />
 					<div className="proj-title">Projects</div>
 					<div className="proj-grid">
 						{PROJECTS.map((p, i) => (
@@ -447,9 +683,8 @@ export default function Hero({ start = true, withCurtain = false }: HeroProps) {
 				</div>
 			</section>
 			</div>
-​
+
 			<Cursor />
 		</div>
 	)
 }
-​
