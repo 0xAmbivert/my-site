@@ -28,7 +28,52 @@ const DEFAULT_HOVER =
 	'a, button, [role="button"], input, textarea, select, label, summary, [data-cursor="glow"]'
 const DEFAULT_CUBE = 'svg, img, [data-cube], [data-cursor="cube"]'
 
-// Cursor styles are defined in Hero.module.css to avoid duplication.
+const STYLES = `
+.cur-hide-native, .cur-hide-native *{ cursor:none !important; }
+.cur-root{
+  position:fixed; inset:0; pointer-events:none; z-index:9998;
+  opacity:0; transition:opacity .3s ease;
+}
+.cur-root.cur-on{ opacity:1; }
+.cur-dot,.cur-ring,.cur-glow{
+  position:fixed; top:0; left:0; pointer-events:none; will-change:transform;
+}
+.cur-dot{
+  width:6px; height:6px; border-radius:50%; background:#3a2c1c;
+  transition:opacity .25s ease;
+}
+.cur-ring{
+  width:42px; height:42px; border-radius:50%;
+  border:1.5px solid rgba(58,44,28,.5);
+  transition:width .4s cubic-bezier(.16,1,.3,1), height .4s cubic-bezier(.16,1,.3,1),
+             border-radius .4s cubic-bezier(.16,1,.3,1), background .35s ease,
+             border-color .35s ease, box-shadow .35s ease;
+}
+.cur-glow{
+  width:60px; height:60px; border-radius:50%; opacity:.45; filter:blur(10px);
+  background:radial-gradient(circle, rgba(232,197,129,.6), rgba(201,143,60,.18) 45%, transparent 70%);
+  transition:opacity .35s ease, width .4s cubic-bezier(.16,1,.3,1), height .4s cubic-bezier(.16,1,.3,1);
+}
+.cur-root.is-active .cur-ring{
+  border-color:rgba(201,143,60,.9);
+  background:rgba(254,240,213,.08);
+  box-shadow:0 0 26px 4px rgba(201,143,60,.4), inset 0 0 16px rgba(255,236,196,.35);
+}
+.cur-root.is-active .cur-glow{ opacity:1; width:150px; height:150px; }
+.cur-root.is-active .cur-dot{ opacity:0; }
+.cur-root.is-press .cur-glow{ opacity:1; width:120px; height:120px; }
+.cur-ring.is-cube{
+  border-radius:16px;
+  border-color:rgba(201,143,60,.7);
+  background:rgba(232,197,129,.16);
+  box-shadow:0 0 30px 6px rgba(201,143,60,.35), inset 0 0 22px rgba(255,236,196,.3);
+}
+.cur-root.is-cube-on .cur-glow{ opacity:.7; }
+.cur-root.is-cube-on .cur-dot{ opacity:0; }
+@media (prefers-reduced-motion: reduce){
+  .cur-ring,.cur-glow,.cur-dot{ transition:opacity .2s ease; }
+}
+`
 
 export default function Cursor({
 	hoverSelector = DEFAULT_HOVER,
@@ -166,6 +211,7 @@ export default function Cursor({
 
 	return (
 		<div className="cur-root" ref={rootRef} aria-hidden="true">
+			<style>{STYLES}</style>
 			<div className="cur-glow" ref={glowRef} />
 			<div className="cur-ring" ref={ringRef} />
 			<div className="cur-dot" ref={dotRef} />
