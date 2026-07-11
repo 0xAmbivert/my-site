@@ -107,6 +107,17 @@ const STYLES = `
     linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 48%, var(--hero-c) 100%);
   opacity:0;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .nmn-enter span,
+  .nmn-name span,
+  .nmn-name-tab,
+  .nmn-glass,
+  .nmn-hero {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
 `
 
 type PreloaderProps = {
@@ -134,11 +145,14 @@ export default function Preloader({
 	const ringRef = useRef<HTMLDivElement>(null)
 	const [revealed, setRevealed] = useState(false)
 	const onEnterRef = useRef(onEnter)
-	onEnterRef.current = onEnter
 	const onCurtainFullRef = useRef(onCurtainFull)
-	onCurtainFullRef.current = onCurtainFull
 	const holdCurtainRef = useRef(holdCurtain)
-	holdCurtainRef.current = holdCurtain
+
+	useEffect(() => {
+		onEnterRef.current = onEnter
+		onCurtainFullRef.current = onCurtainFull
+		holdCurtainRef.current = holdCurtain
+	}, [onEnter, onCurtainFull, holdCurtain])
 
 	useEffect(() => {
 		const root = rootRef.current
@@ -171,18 +185,20 @@ export default function Preloader({
 		let played = false
 		const ctx = gsap.context(() => {}, root)
 
+		const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
 		const enter = () => {
 			if (played) return
 			played = true
 			ring.classList.remove("is-hover")
 			ctx.add(() => {
-				const tl = gsap.timeline({ defaults: { ease: "expo.inOut" } })
+				const tl = gsap.timeline({ defaults: { ease: reduceMotion ? "none" : "expo.inOut" } })
 				let lineTop = 0, lineLeft = 0, lineW = 0
 				// 1 — ENTER letters lift away from center
-				tl.to(".nmn-enter span", { y: -64, opacity: 0, stagger: { each: 0.04, from: "center" }, duration: 0.85, ease: "power3.in" })
+				tl.to(".nmn-enter span", { y: -64, opacity: 0, stagger: { each: 0.04, from: "center" }, duration: reduceMotion ? 0.01 : 0.85, ease: reduceMotion ? "none" : "power3.in" })
 					// 2 — name tab drops in from the top edge; letters rise inside
-					.to(".nmn-name-tab", { opacity: 1, y: 0, duration: 0.9, ease: "power4.out" }, "-=0.35")
-					.to(".nmn-name span", { y: 0, duration: 0.9, stagger: 0.045, ease: "expo.out" }, "<0.1")
+					.to(".nmn-name-tab", { opacity: 1, y: 0, duration: reduceMotion ? 0.01 : 0.9, ease: reduceMotion ? "none" : "power4.out" }, "-=0.35")
+					.to(".nmn-name span", { y: 0, duration: reduceMotion ? 0.01 : 0.9, stagger: 0.045, ease: reduceMotion ? "none" : "expo.out" }, "<0.1")
 					// 3 — glass ring travels to the card's TOP outline, matching its exact width
 					.add(() => {
 						const glass = document.querySelector(".nmn-glass") as HTMLElement | null
@@ -195,14 +211,14 @@ export default function Preloader({
 						lineTop = c ? c.top - 2 : window.innerHeight * 0.32
 						gsap.set(glass, { position: "fixed", margin: 0, x: 0, y: 0, top: g.top, left: g.left, width: g.width, height: g.height })
 					}, "-=0.55")
-					.to(".nmn-glass", { top: () => lineTop, left: () => lineLeft, width: () => lineW, height: 4, borderRadius: 4, duration: 1.2, ease: "power4.inOut" })
-					.to(".nmn-glass", { backgroundColor: "rgba(255,255,255,0.9)", backdropFilter: "blur(0px)", borderColor: "rgba(255,255,255,0)", boxShadow: "0 0 26px rgba(255,255,255,0.45)", duration: 0.9, ease: "sine.inOut" }, "<0.1")
+					.to(".nmn-glass", { top: () => lineTop, left: () => lineLeft, width: () => lineW, height: 4, borderRadius: 4, duration: reduceMotion ? 0.01 : 1.2, ease: reduceMotion ? "none" : "power4.inOut" })
+					.to(".nmn-glass", { backgroundColor: "rgba(255,255,255,0.9)", backdropFilter: "blur(0px)", borderColor: "rgba(255,255,255,0)", boxShadow: "0 0 26px rgba(255,255,255,0.45)", duration: reduceMotion ? 0.01 : 0.9, ease: reduceMotion ? "none" : "sine.inOut" }, "<0.1")
 					.add(() => {
 						onCurtainFullRef.current?.()
 					})
 					// 4 — hero fades up beneath
-					.to(".nmn-hero", { opacity: 1, duration: 0.8 }, "-=0.7")
-					.to(".nmn-glass", { opacity: 0, duration: 0.5 }, "-=0.3")
+					.to(".nmn-hero", { opacity: 1, duration: reduceMotion ? 0.01 : 0.8 }, "-=0.7")
+					.to(".nmn-glass", { opacity: 0, duration: reduceMotion ? 0.01 : 0.5 }, "-=0.3")
 					.add(() => {
 						if (holdCurtainRef.current) return
 						setRevealed(true)
